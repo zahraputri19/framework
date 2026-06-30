@@ -1,4 +1,5 @@
 <?php
+
 namespace App\Http\Controllers\Auth;
 
 use App\Http\Controllers\Controller;
@@ -36,7 +37,7 @@ class RegisterController extends Controller
         ]);
 
         $otp = str_pad(random_int(0, 999999), 6, '0', STR_PAD_LEFT);
-        
+
         EmailOtp::updateOrCreate(
             ['email' => $request->email],
             [
@@ -48,7 +49,7 @@ class RegisterController extends Controller
         try {
             Mail::send('emails.otp', ['otp' => $otp, 'name' => $request->name], function ($message) use ($request) {
                 $message->to($request->email)
-                        ->subject('Verifikasi OTP - Perpustakaan');
+                    ->subject('Verifikasi OTP - Perpustakaan');
             });
         } catch (\Exception $e) {
             Log::error('Mail Error: ' . $e->getMessage());
@@ -57,12 +58,18 @@ class RegisterController extends Controller
         session(['register_email' => $request->email]);
 
         return redirect()->route('otp.verify.form')
-                        ->with('success', 'Silahkan verifikasi OTP yang telah dikirim ke email Anda.');
+            ->with('success', 'Silahkan verifikasi OTP yang telah dikirim ke email Anda.');
     }
 
     public function showOtpForm()
     {
-        return view('auth.verify-otp');
+        $email = session('register_email');
+        if (!$email) {
+            return redirect()->route('register')
+                ->with('error', 'Silahkan melakukan registrasi terlebih dahulu.');
+        }
+
+        return view('auth.verify-otp', compact('email'));
     }
 
     public function verifyOtp(Request $request)
@@ -77,9 +84,9 @@ class RegisterController extends Controller
         }
 
         $otpVerification = EmailOtp::where('email', $email)
-                                        ->where('otp_code', $request->otp)
-                                        ->where('expired_at', '>', Carbon::now())
-                                        ->first();
+            ->where('otp_code', $request->otp)
+            ->where('expired_at', '>', Carbon::now())
+            ->first();
 
         if (!$otpVerification) {
             return back()->with('error', 'OTP tidak valid atau telah kadaluarsa.');
@@ -101,7 +108,7 @@ class RegisterController extends Controller
         }
 
         $otp = str_pad(random_int(0, 999999), 6, '0', STR_PAD_LEFT);
-        
+
         EmailOtp::updateOrCreate(
             ['email' => $email],
             [
@@ -111,10 +118,10 @@ class RegisterController extends Controller
         );
 
         $user = User::where('email', $email)->first();
-        
+
         Mail::send('emails.otp', ['otp' => $otp, 'name' => $user->name], function ($message) use ($email) {
             $message->to($email)
-                    ->subject('Verifikasi OTP - Perpustakaan');
+                ->subject('Verifikasi OTP - Perpustakaan');
         });
 
         return back()->with('success', 'OTP baru telah dikirim ke email Anda.');

@@ -19,7 +19,7 @@ Route::get('/', function () {
 
 // ============ AUTH ROUTES ============
 Route::get('/register', [RegisterController::class, 'showRegistrationForm'])->name('register');
-Route::post('/register', [RegisterController::class, 'register']);
+Route::post('/register', [RegisterController::class, 'register'])->name('register.post');
 Route::get('/verify-otp', [RegisterController::class, 'showOtpForm'])->name('otp.verify.form');
 Route::post('/verify-otp', [RegisterController::class, 'verifyOtp'])->name('otp.verify');
 Route::post('/resend-otp', [RegisterController::class, 'resendOtp'])->name('otp.resend');
@@ -34,6 +34,15 @@ Route::post('/login', function (Request $request) {
         'email' => 'required|email',
         'password' => 'required'
     ]);
+
+    $user = \App\Models\User::where('email', $request->email)->first();
+
+    // Cek apakah user sudah terverifikasi OTP
+    if ($user && !$user->is_verified) {
+        session(['register_email' => $user->email]);
+        return redirect()->route('otp.verify.form')
+            ->with('error', 'Akun Anda belum terverifikasi. Silakan verifikasi OTP terlebih dahulu.');
+    }
 
     if (auth()->attempt($credentials, $request->remember)) {
         $request->session()->regenerate();
@@ -65,7 +74,7 @@ Route::middleware(['auth'])->group(function () {
     Route::get('/books', [BookController::class, 'index'])->name('books.index');
     Route::get('/books/search-api', [BookController::class, 'searchApi'])->name('books.search-api');
     Route::get('/books/{book}', [BookController::class, 'show'])->name('books.show');
-    
+
     // Book CRUD - HANYA ADMIN
     Route::middleware(['check.role:admin'])->group(function () {
         Route::get('/books/create', [BookController::class, 'create'])->name('books.create');
@@ -95,12 +104,12 @@ Route::middleware(['auth'])->group(function () {
     Route::post('/loans', [LoanController::class, 'store'])->name('loans.store');
     Route::get('/loans/{id}', [LoanController::class, 'show'])->name('loans.show');
     Route::post('/loans/{id}/return', [LoanController::class, 'returnBook'])->name('loans.return');
-    
+
     // UPDATE DENDA (ADMIN ONLY)
     Route::put('/loans/{id}/update-fine', [LoanController::class, 'updateFine'])
         ->name('loans.updateFine')
         ->middleware(['check.role:admin']);
-    
+
     // Hapus loan (ADMIN ONLY)
     Route::middleware(['check.role:admin'])->group(function () {
         Route::delete('/loans/{id}', [LoanController::class, 'destroy'])->name('loans.destroy');
@@ -120,10 +129,10 @@ Route::middleware(['auth'])->group(function () {
     Route::get('/repairs/create', [BookRepairController::class, 'create'])->name('repairs.create');
     Route::post('/repairs', [BookRepairController::class, 'store'])->name('repairs.store');
     Route::get('/repairs/{id}', [BookRepairController::class, 'show'])->name('repairs.show');
-    
+
     // Selesaikan perbaikan (Member & Admin)
     Route::post('/repairs/{id}/complete', [BookRepairController::class, 'complete'])->name('repairs.complete');
-    
+
     // ADMIN ONLY - Kelola Perbaikan
     Route::middleware(['check.role:admin'])->group(function () {
         Route::get('/repairs/{id}/edit', [BookRepairController::class, 'edit'])->name('repairs.edit');

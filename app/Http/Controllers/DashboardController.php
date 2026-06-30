@@ -1,4 +1,5 @@
 <?php
+
 namespace App\Http\Controllers;
 
 use App\Models\Book;
@@ -21,7 +22,7 @@ class DashboardController extends Controller
         // Dashboard Admin
         $totalBooks = Book::count();
         $totalMembers = User::where('role', 'member')->count();
-        
+
         // Transaksi peminjaman (menggunakan tabel loans)
         $totalTransactions = Loan::where('status', 'dipinjam')->count();
         $totalReturned = Loan::where('status', 'dikembalikan')->count();
@@ -34,10 +35,10 @@ class DashboardController extends Controller
             DB::raw('MONTH(borrow_date) as month'),
             DB::raw('COUNT(*) as total')
         )
-        ->whereYear('borrow_date', Carbon::now()->year)
-        ->groupBy('month')
-        ->orderBy('month')
-        ->get();
+            ->whereYear('borrow_date', Carbon::now()->year)
+            ->groupBy('month')
+            ->orderBy('month')
+            ->get();
 
         $labels = [];
         $data = [];
@@ -48,16 +49,22 @@ class DashboardController extends Controller
 
         // Buku terpopuler
         $popularBooks = Book::withCount('loans')
-                            ->orderBy('loans_count', 'desc')
-                            ->limit(5)
-                            ->get();
+            ->orderBy('loans_count', 'desc')
+            ->limit(5)
+            ->get();
 
         // Member teraktif
         $activeMembers = User::withCount('loans')
-                            ->where('role', 'member')
-                            ->orderBy('loans_count', 'desc')
-                            ->limit(5)
-                            ->get();
+            ->where('role', 'member')
+            ->orderBy('loans_count', 'desc')
+            ->limit(5)
+            ->get();
+
+        // Semua member
+        $members = User::where('role', 'member')
+            ->orderBy('created_at', 'desc')
+            ->limit(10)
+            ->get();
 
         return view('dashboard', compact(
             'totalBooks',
@@ -70,32 +77,33 @@ class DashboardController extends Controller
             'labels',
             'data',
             'popularBooks',
-            'activeMembers'
+            'activeMembers',
+            'members'
         ));
     }
 
     private function memberDashboard()
     {
         $user = auth()->user();
-        
+
         $activeLoans = Loan::where('user_id', $user->id)
-                          ->whereIn('status', ['dipinjam', 'terlambat'])
-                          ->with(['book'])
-                          ->get();
+            ->whereIn('status', ['dipinjam', 'terlambat'])
+            ->with(['book'])
+            ->get();
 
         $historyLoans = Loan::where('user_id', $user->id)
-                           ->where('status', 'dikembalikan')
-                           ->with(['book'])
-                           ->limit(5)
-                           ->get();
+            ->where('status', 'dikembalikan')
+            ->with(['book'])
+            ->limit(5)
+            ->get();
 
         $totalFines = Loan::where('user_id', $user->id)
-                         ->where('payment_status', 'belum_bayar')
-                         ->sum('fine_amount');
+            ->where('payment_status', 'belum_bayar')
+            ->sum('fine_amount');
 
         $totalBorrowed = Loan::where('user_id', $user->id)
-                            ->whereIn('status', ['dipinjam', 'terlambat'])
-                            ->count();
+            ->whereIn('status', ['dipinjam', 'terlambat'])
+            ->count();
 
         return view('member.dashboard', compact(
             'activeLoans',
